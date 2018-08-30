@@ -37,9 +37,9 @@ def inference(batch_placeholders, corrupt_placeholder, init_word_embeds, entity_
     for r in range(num_relations):
         print("Relations loop "+str(r))
         e1, e2, e3 = tf.split(1, 3, tf.cast(batch_placeholders[r], tf.int32)) #TODO: should the split dimension be 0 or 1?
-        e1v = tf.transpose(tf.squeeze(tf.gather(entEmbed, e1, name='e1v'+str(r)),[1]))
-        e2v = tf.transpose(tf.squeeze(tf.gather(entEmbed, e2, name='e2v'+str(r)),[1]))
-        e3v = tf.transpose(tf.squeeze(tf.gather(entEmbed, e3, name='e3v'+str(r)),[1]))
+        e1v = tf.transpose(tf.squeeze(tf.gather(entEmbed, e1, name='e1v'+str(r)),[1]))#头节点对应的E
+        e2v = tf.transpose(tf.squeeze(tf.gather(entEmbed, e2, name='e2v'+str(r)),[1]))#尾节点
+        e3v = tf.transpose(tf.squeeze(tf.gather(entEmbed, e3, name='e3v'+str(r)),[1]))#relation
         e1v_pos = e1v
         e2v_pos = e2v
         e1v_neg = e1v
@@ -54,17 +54,17 @@ def inference(batch_placeholders, corrupt_placeholder, init_word_embeds, entity_
 
         #print("Starting preactivation funcs")
         for slice in range(k):
-            preactivation_pos.append(tf.reduce_sum(e1v_pos*tf.matmul(W[r][:,:,slice], e2v_pos), 0))
+            preactivation_pos.append(tf.reduce_sum(e1v_pos*tf.matmul(W[r][:,:,slice], e2v_pos), 0))#先矩阵乘法，再点乘？？？好像错了
             preactivation_neg.append(tf.reduce_sum(e1v_neg*tf.matmul( W[r][:,:,slice], e2v_neg), 0))
 
         preactivation_pos = tf.pack(preactivation_pos)
         preactivation_neg = tf.pack(preactivation_neg)
 
-        temp2_pos = tf.matmul(V[r], tf.concat(0, [e1v_pos, e2v_pos]))
+        temp2_pos = tf.matmul(V[r], tf.concat(0, [e1v_pos, e2v_pos]))#按行拼接两部分样本后和Mr,1、Mr,2相乘
         temp2_neg = tf.matmul(V[r], tf.concat(0, [e1v_neg, e2v_neg]))
 
         #print("   temp2_pos: "+str(temp2_pos.get_shape()))
-        preactivation_pos = preactivation_pos+temp2_pos+b[r]
+        preactivation_pos = preactivation_pos+temp2_pos+b[r]#双线性和Mr,1*Lh、Mr,2*Lt和偏置b相加和
         preactivation_neg = preactivation_neg+temp2_neg+b[r]
 
         #print("Starting activation funcs")
